@@ -23,7 +23,7 @@ services:
     ports:
       - "${KAFKA_UI_PORT}:8080"
     environment:
-      - KAFKA_CLUSTERS_0_NAME=framework
+      - KAFKA_CLUSTERS_0_NAME=streamflow
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
     depends_on:
       - kafka
@@ -128,13 +128,14 @@ services:
     command: >
       bash -c "
       airflow db migrate &&
+      (airflow users list | grep -q \"${AIRFLOW_ADMIN_USER}\" ||
       airflow users create
         --role Admin
         --username ${AIRFLOW_ADMIN_USER}
         --password ${AIRFLOW_ADMIN_PASSWORD}
         --firstname Admin
         --lastname User
-        --email admin@example.com || true &&
+        --email admin@example.com) &&
       airflow scheduler &
       exec airflow webserver"
     depends_on:
