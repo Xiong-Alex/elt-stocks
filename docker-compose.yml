@@ -79,7 +79,7 @@ services:
     ports:
       - "${SPARK_MASTER_PORT}:7077"
       - "${SPARK_MASTER_UI_PORT}:8080"
-    command: ["/opt/spark/sbin/start-master.sh"]
+    command: ["/bin/bash", "-c", "/opt/spark/sbin/start-master.sh && tail -f /opt/spark/logs/*"]
     networks:
       - framework-net
 
@@ -88,7 +88,7 @@ services:
     container_name: spark-worker
     depends_on:
       - spark-master
-    command: ["/opt/spark/sbin/start-worker.sh", "spark://spark-master:7077"]
+    command: ["/bin/bash", "-c", "/opt/spark/sbin/start-worker.sh spark://spark-master:7077 && tail -f /opt/spark/logs/*"]
     networks:
       - framework-net
 
@@ -127,6 +127,7 @@ services:
       - airflow_logs:/opt/airflow/logs
     command: >
       bash -c "
+      airflow db init &&
       airflow db migrate &&
       (airflow users list | grep -q \"${AIRFLOW_ADMIN_USER}\" ||
       airflow users create
