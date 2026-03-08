@@ -1,121 +1,270 @@
-# StreamFlow Stock Analytics Platform
+# StreamFlow ELT Pipeline Framework
 
-End-to-end pipeline for market data using Kafka, Spark, MinIO, Postgres, Airflow, and Streamlit.
+A local-first ELT framework for stock analytics built with:
+- Airflow (orchestration)
+- Kafka (event transport)
+- Python jobs (ingest + transforms)
+- Postgres (analytics warehouse)
+- MinIO (lake/object storage service in stack)
+- Streamlit (data explorer and dashboards)
+
+The goal is a practical framework you can build on, not a fully production-hardened platform.
+
+## What This Project Does
+
+The pipeline ingests market/reference data, stages and transforms it through Bronze/Silver/Gold style layers, and publishes analytics-ready tables for exploration.
+
+High-level flow:
+
+`yfinance -> Kafka -> Bronze -> Silver -> Gold (Postgres) -> marts/features -> Streamlit`
 
 ## Repository Layout
 
 ```text
 .
-|-- platform/
-|   |-- docker-compose.yml
-|   `-- airflow/Dockerfile
+|-- airflow/
+|   |-- Dockerfile
+|   `-- requirements.txt
 |-- pipelines/
-|   |-- batch/
-|   |   |-- dags/
-|   |   `-- jobs/
+|   |-- dags/
+|   `-- jobs/
+|       |-- ingest/
+|       |-- bronze/
+|       |-- silver/
+|       |-- gold/
+|       |-- marts/
+|       `-- common/
+|-- scripts/
+|   `-- smoke-test.ps1
 |-- streamlit/
-`-- docs/
+|   |-- app.py
+|   `-- pages/
+|-- tests/
+|   |-- contracts/
+|   |-- dags/
+|   |-- jobs/
+|   `-- repo/
+|-- docker-compose.yml
+|-- Makefile
+`-- .env.example
 ```
 
-## Data Flow
+## Prerequisites
 
-`yfinance -> Kafka(stock_bars_raw) -> Spark Bronze -> Spark Silver -> Spark Gold(Postgres) -> Streamlit`
+- Docker Desktop
+- Python 3.11 (`C:\Python311\python.exe` in your current setup)
+- PowerShell (for Windows commands)
+
+Optional:
+- `make` (you can run all commands without it)
 
 ## Quick Start
 
+1. Create env file:
+
 ```powershell
 Copy-Item .env.example .env
+```
+
+2. Start stack:
+
+```powershell
 docker compose up -d --build
 docker compose ps
 ```
 
-## Smoke Test
+3. Open UIs:
+- Airflow: `http://localhost:8082`
+- Streamlit: `http://localhost:8501`
+- Kafka UI: `http://localhost:8080`
+- Spark UI: `http://localhost:8081`
+- MinIO Console: `http://localhost:9001`
 
-If `make` is installed:
+Default credentials:
+- Airflow: `admin / admin`
+- Analytics Postgres: `analytics / analytics` on `localhost:5433`
+- Airflow Postgres: `airflow / airflow` on `localhost:5432`
+- MinIO: `minioadmin / minioadmin`
+
+## Core Services and Ports
+
+From `.env.example` defaults:
+
+- Kafka broker: `9092`
+- Kafka UI: `8080`
+- Airflow UI: `8082`
+- Spark master UI: `8081`
+- MinIO API: `9000`
+- MinIO console: `9001`
+- Streamlit: `8501`
+- Postgres (airflow metadata): `5432`
+- Postgres (analytics): `5433`
+
+## DAGs and Responsibilities
+
+Located in `pipelines/dags`:
+
+1. `update_stock_universe_dag`
+- Refreshes source symbols/universe membership
+- Builds `dim_stock`, `dim_universe`, and bridge membership
+
+2. `historical_backfill_dag` (manual)
+- Backfills prices for a date range/run_id
+- Runs ingest -> bronze -> silver -> gold -> `fact_price_daily`
+
+3. `intraday_pipeline_dag` (scheduled every 30 min)
+- Price-focused periodic pipeline
+- ingest -> bronze -> silver -> gold
+
+4. `price_bronze_streaming_dag` (manual)
+- Manual price ingest + bronze load only
+- Useful for price-only runs without silver/gold
+
+5. `reference_data_dag` (daily)
+- Fundamentals/dividends/earnings ingest + fact refresh
+
+6. `feature_engineering_dag`
+- Builds dimensions/facts/features (including market signals)
+
+## Recommended Run Order
+
+For a fresh local setup:
+
+1. `update_stock_universe_dag`
+2. `reference_data_dag`
+3. `historical_backfill_dag` (optional but recommended initially)
+4. `intraday_pipeline_dag`
+5. `feature_engineering_dag`
+
+Use `price_bronze_streaming_dag` when you specifically want a manual price->bronze run.
+
+## Triggering Backfill with Config
+
+Airflow UI -> `historical_backfill_dag` -> Trigger with config:
+
+```json
+{
+  "start_date": "2026-03-01",
+  "end_date": "2026-03-06",
+  "symbols": "AAPL,MSFT",
+  "run_id": "backfill_20260306_aapl_msft"
+}
+```
+
+Notes:
+- `symbols` optional: falls back to active symbols in `public.stock_symbols`
+- `run_id` optional: defaults to Airflow run timestamp token
+
+## Command Reference
+
+### Make Targets
 
 ```powershell
+make up
+make down
+make ps
+make logs
 make smoke
+make smoke-build
 ```
 
-Run the full command from the repo root (works without `make`):
+### Without Make
 
 ```powershell
+docker compose up -d --build
+docker compose down
+docker compose ps
+docker compose logs -f
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
-```
-
-Fast check without rebuilding images (full command):
-
-```powershell
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -NoBuild
 ```
 
-## Important Config
+### Useful Airflow CLI
 
-- Spark jobs submitted by Airflow use Spark cluster mode:
-  - `SPARK_MASTER_URL=spark://spark-master:7077`
-- Bronze Kafka offset policy is env-driven:
-  - `BRONZE_FAIL_ON_DATA_LOSS=false` for local/dev
-  - `BRONZE_FAIL_ON_DATA_LOSS=true` for stricter production behavior
-- Keep this in `.env` (already present in `.env.example`).
+```powershell
+docker compose exec airflow-webserver airflow dags list
+docker compose exec airflow-webserver airflow dags trigger intraday_pipeline_dag
+docker compose exec airflow-webserver airflow tasks list intraday_pipeline_dag
+```
 
-## URLs
+## Testing
 
-1. Airflow: `http://localhost:8082` (`admin/admin`)
-2. Spark Master UI: `http://localhost:8081`
-3. Kafka UI: `http://localhost:8080`
-4. MinIO Console: `http://localhost:9001`
-5. Streamlit: `http://localhost:8501`
-6. Postgres Airflow metadata: `localhost:5432` (`airflow/airflow`)
-7. Postgres analytics: `localhost:5433` (`analytics/analytics`)
+The project includes a lightweight AST/contract-based test suite under `tests/`.
 
-## Airflow Services
+Install pytest (current interpreter):
 
-- Airflow now runs as separate services:
-  - `airflow-init` (one-time DB/user bootstrap)
-  - `airflow-webserver` (UI/API)
-  - `airflow-scheduler` (DAG scheduling)
-- For Airflow CLI commands, exec into `airflow-webserver`:
-  - `docker compose exec airflow-webserver airflow users list`
+```powershell
+C:\Python311\python.exe -m pip install --user pytest
+```
 
-## DAG Run Order
+Run tests:
 
-1. `update_stock_universe_dag`
-2. Start `price_bronze_streaming_dag` (leave running)
-3. `historical_backfill_dag` (optional backfill)
-4. Enable `intraday_pipeline_dag`
+```powershell
+C:\Python311\python.exe -m pytest -q
+```
 
-## Key Improvements Included
+Verbose:
 
-1. Environment-driven configuration via `.env` and `.env.example`.
-2. Scalable Bronze ingestion:
-   - `spark_kafka_to_bronze.py` supports:
-     - `availableNow` for bounded runs
-     - `processing-time` for long-running price stream
-   - Offset progress is persisted with Kafka checkpointing (`BRONZE_CHECKPOINT_PATH`).
-3. Shared data quality framework:
-   - `pipelines/batch/jobs/common/data_quality.py`
-4. Bronze quarantine:
-   - Invalid OHLCV rows are written to `s3a://<bucket>/quarantine/stock_bars`
-   - Includes `quality_failure_reason` and `quarantined_at_utc` columns.
-   - Also mirrored to Postgres table `public.stock_bars_quarantine` for UI review.
+```powershell
+C:\Python311\python.exe -m pytest -vv -rA
+```
 
-## Streamlit Enhancements
+## Streamlit Pages
 
-1. `Quarantine Review` tab with:
-   - Date/symbol/reason filters
-   - Failure-reason breakdown chart
-   - CSV export of filtered rows
-2. Sidebar health checks for Analytics DB, Airflow DB, and MinIO/S3.
-3. Multipage UI:
-   - Home
-   - Market Monitor
-   - Charts Workbench
-   - Replay Lab
-   - Quarantine Review
-   - SQL Explorer
+- Market Monitor
+- Charts Workbench
+- Quarantine Review
+- SQL Explorer
+- Feature Engineering
+- Replay Lab
+- Universe Pipeline
 
-## Docs
+## Troubleshooting
 
-1. Architecture overview: `docs/architecture.md`
-2. Original project spec: `docs/architecture-spec.md`
-3. Detailed technical walkthrough: `README_DETAILED.md`
+### `No module named pytest`
+
+Install pytest for the same interpreter VS Code is using:
+
+```powershell
+C:\Python311\python.exe -m pip install --user pytest
+```
+
+### Docker container name conflict (`already in use`)
+
+Remove conflicting container or bring stack down first:
+
+```powershell
+docker compose down
+docker ps -a
+docker rm -f <container_name_or_id>
+```
+
+### Airflow login issues
+
+Airflow user is created by `airflow-init` service via env vars in `.env`.
+If needed, recreate stack:
+
+```powershell
+docker compose down
+docker compose up -d --build
+```
+
+### Streamlit still showing old code
+
+Rebuild/recreate Streamlit container:
+
+```powershell
+docker compose up -d --build --force-recreate streamlit
+```
+
+## Documentation
+
+- Architecture overview: `docs/architecture.md`
+- Detailed architecture spec: `docs/architecture-spec.md`
+- Extended notes: `docs/README_DETAILED.md`
+
+## Notes
+
+- This is a framework/demo baseline designed for iterative extension.
+- Current tests prioritize structure/contracts over full integration execution.
+- Runtime smoke checks (`scripts/smoke-test.ps1`) and `pytest` serve different purposes and both are useful.

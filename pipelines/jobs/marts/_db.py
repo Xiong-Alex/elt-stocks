@@ -68,3 +68,16 @@ def ensure_source_tables(conn) -> None:
             );
             """
         )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS public.stock_universe_memberships_source (
+                universe_code TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                as_of_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                source TEXT,
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (universe_code, symbol)
+            );
+            """
+        )

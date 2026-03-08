@@ -167,7 +167,7 @@ for opt in overlay_opts:
         main_fig.add_trace(go.Scatter(x=view_df["event_ts"], y=view_df[col], mode="lines", name=opt))
 
 main_fig.update_layout(height=500, margin=dict(l=8, r=8, t=8, b=8), xaxis_rangeslider_visible=False, template="plotly_white")
-apply_time_axis(main_fig, compress_gaps=compress_gaps, bucket=bucket if bucket != "Raw" else "1H")
+apply_time_axis(main_fig, compress_gaps=compress_gaps, bucket=bucket)
 st.plotly_chart(main_fig, use_container_width=True)
 
 for panel in lower_opts:
@@ -188,7 +188,7 @@ for panel in lower_opts:
     if panel == "ADX(14)":
         fig.add_hline(y=25, line_dash="dash")
     fig.update_layout(title=panel, height=250, margin=dict(l=8, r=8, t=30, b=8), template="plotly_white")
-    apply_time_axis(fig, compress_gaps=compress_gaps, bucket=bucket if bucket != "Raw" else "1H")
+    apply_time_axis(fig, compress_gaps=compress_gaps, bucket=bucket)
     st.plotly_chart(fig, use_container_width=True)
 
 if st.session_state["replay_playing"] and st.session_state["replay_idx"] < len(df) - 1:

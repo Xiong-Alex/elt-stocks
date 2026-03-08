@@ -139,7 +139,7 @@ with left:
             fig.add_trace(go.Scatter(x=trend_df["event_ts"], y=trend_df["resistance_20"], mode="lines", name="Resistance(20)"))
 
         fig.update_layout(height=500, margin=dict(l=8, r=8, t=10, b=8), xaxis_rangeslider_visible=False, template="plotly_white")
-        apply_time_axis(fig, compress_gaps=compress_gaps, bucket=bucket if bucket != "Raw" else "1H")
+        apply_time_axis(fig, compress_gaps=compress_gaps, bucket=bucket)
         st.plotly_chart(fig, use_container_width=True)
 
 with right:

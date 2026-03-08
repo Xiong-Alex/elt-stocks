@@ -273,7 +273,7 @@ def apply_time_axis(fig, compress_gaps: bool, bucket: str):
     if not compress_gaps:
         return
     rangebreaks = [dict(bounds=["sat", "mon"])]
-    if bucket in ["Raw", "1H"]:
+    if bucket in ["5min", "15min", "1H"]:
         rangebreaks.append(dict(pattern="hour", bounds=[21, 14.5]))
     fig.update_xaxes(rangebreaks=rangebreaks)
 
@@ -299,13 +299,13 @@ def load_symbol_trend(symbol: str, limit: int = 50000) -> pd.DataFrame:
 def _build_quarantine_where_clauses(params: dict) -> str:
     clauses = ["1=1"]
     if params.get("start_date"):
-        clauses.append("DATE(quarantined_at_utc) >= :start_date")
+        clauses.append("DATE(inserted_at) >= :start_date")
     if params.get("end_date"):
-        clauses.append("DATE(quarantined_at_utc) <= :end_date")
+        clauses.append("DATE(inserted_at) <= :end_date")
     if params.get("symbol"):
         clauses.append("symbol = :symbol")
     if params.get("reason"):
-        clauses.append("quality_failure_reason = :reason")
+        clauses.append("reason = :reason")
     return " AND ".join(clauses)
 
 
@@ -315,7 +315,7 @@ def load_quarantine_summary() -> pd.DataFrame:
         """
         SELECT COUNT(*)::BIGINT AS total_rows,
                COUNT(DISTINCT symbol)::BIGINT AS distinct_symbols,
-               MAX(quarantined_at_utc) AS latest_quarantine_ts
+               MAX(inserted_at) AS latest_quarantine_ts
         FROM public.stock_bars_quarantine
         """
     )
@@ -325,9 +325,9 @@ def load_quarantine_summary() -> pd.DataFrame:
 def load_quarantine_reason_breakdown(limit: int = 20) -> pd.DataFrame:
     return query_df_params(
         """
-        SELECT quality_failure_reason, COUNT(*)::BIGINT AS row_count
+        SELECT reason AS quality_failure_reason, COUNT(*)::BIGINT AS row_count
         FROM public.stock_bars_quarantine
-        GROUP BY quality_failure_reason
+        GROUP BY reason
         ORDER BY row_count DESC
         LIMIT :limit
         """,
@@ -353,10 +353,10 @@ def load_quarantine_symbols(limit: int = 1000) -> pd.DataFrame:
 def load_quarantine_reasons(limit: int = 1000) -> pd.DataFrame:
     return query_df_params(
         """
-        SELECT DISTINCT quality_failure_reason
+        SELECT DISTINCT reason AS quality_failure_reason
         FROM public.stock_bars_quarantine
-        WHERE quality_failure_reason IS NOT NULL
-        ORDER BY quality_failure_reason
+        WHERE reason IS NOT NULL
+        ORDER BY reason
         LIMIT :limit
         """,
         {"limit": limit},
@@ -375,10 +375,10 @@ def load_quarantine_rows(
     where_clause = _build_quarantine_where_clauses(params)
     return query_df_params(
         f"""
-        SELECT symbol, event_ts, open, high, low, close, volume, quality_failure_reason, quarantined_at_utc
+        SELECT run_id, symbol, event_ts, reason AS quality_failure_reason, inserted_at AS quarantined_at_utc, payload
         FROM public.stock_bars_quarantine
         WHERE {where_clause}
-        ORDER BY quarantined_at_utc DESC
+        ORDER BY inserted_at DESC
         LIMIT :limit
         """,
         params,

@@ -37,7 +37,7 @@ else:
     summary_df = query_df(
         """
         SELECT
-            (SELECT MAX(event_date) FROM public.fact_market_signals) AS latest_signal_date,
+            (SELECT MAX(TO_DATE(date_key::text, 'YYYYMMDD')) FROM public.fact_market_signals) AS latest_signal_date,
             (SELECT COUNT(*) FROM public.fact_market_signals) AS signal_rows,
             (SELECT COUNT(DISTINCT ticker) FROM public.fact_market_signals) AS ticker_count,
             (SELECT COUNT(*) FROM public.fact_price_daily) AS price_rows,
@@ -58,32 +58,33 @@ else:
     ranking_df = query_df_params(
         """
         WITH latest_date AS (
-            SELECT MAX(event_date) AS event_date
+            SELECT MAX(date_key) AS date_key
             FROM public.fact_market_signals
         )
         SELECT
             s.ticker,
-            s.event_date,
-            s.composite_strength_score,
-            s.momentum_5d,
-            s.momentum_20d,
-            s.volatility_score,
-            s.risk_score,
-            s.stability_score,
-            s.growth_score,
+            TO_DATE(s.date_key::text, 'YYYYMMDD') AS event_date,
+            s.close,
+            s.sma_5,
+            s.sma_20,
+            s.momentum_5,
+            CASE
+                WHEN s.sma_20 IS NULL OR s.sma_20 = 0 THEN NULL
+                ELSE ((s.sma_5 - s.sma_20) / s.sma_20) * 100.0
+            END AS trend_spread_pct,
             f.pe_ratio,
-            f.revenue_growth,
-            f.eps_growth
+            f.market_cap,
+            f.beta
         FROM public.fact_market_signals s
         LEFT JOIN public.fact_fundamentals f
           ON f.ticker = s.ticker
-         AND f.report_date = (
-             SELECT MAX(f2.report_date)
+         AND f.asof_date = (
+             SELECT MAX(f2.asof_date)
              FROM public.fact_fundamentals f2
              WHERE f2.ticker = s.ticker
          )
-        WHERE s.event_date = (SELECT event_date FROM latest_date)
-        ORDER BY s.composite_strength_score DESC NULLS LAST, s.ticker
+        WHERE s.date_key = (SELECT date_key FROM latest_date)
+        ORDER BY trend_spread_pct DESC NULLS LAST, s.ticker
         LIMIT :top_n
         """,
         {"top_n": top_n},
@@ -94,9 +95,9 @@ else:
         fig_rank = px.bar(
             ranking_df.head(15),
             x="ticker",
-            y="composite_strength_score",
-            color="momentum_20d",
-            title="Top Composite Strength Scores (Latest Date)",
+            y="trend_spread_pct",
+            color="momentum_5",
+            title="Top Trend Spread % (Latest Date)",
             color_continuous_scale=["#dc2626", "#f3f4f6", "#16a34a"],
         )
         st.plotly_chart(fig_rank, use_container_width=True)
@@ -115,18 +116,16 @@ else:
     trend_df = query_df_params(
         """
         SELECT
-            event_date,
-            composite_strength_score,
-            momentum_5d,
-            momentum_20d,
-            volatility_score,
-            risk_score,
-            stability_score,
-            growth_score
+            TO_DATE(date_key::text, 'YYYYMMDD') AS event_date,
+            close,
+            sma_5,
+            sma_20,
+            momentum_5,
+            signal
         FROM public.fact_market_signals
         WHERE ticker = :ticker
-          AND event_date >= CURRENT_DATE - (:lookback_days * INTERVAL '1 day')
-        ORDER BY event_date
+          AND TO_DATE(date_key::text, 'YYYYMMDD') >= CURRENT_DATE - (:lookback_days * INTERVAL '1 day')
+        ORDER BY date_key
         """,
         {"ticker": ticker, "lookback_days": lookback_days},
     )
@@ -135,13 +134,10 @@ else:
     else:
         trend_df["event_date"] = pd.to_datetime(trend_df["event_date"], errors="coerce")
         metric_cols = [
-            "composite_strength_score",
-            "momentum_5d",
-            "momentum_20d",
-            "volatility_score",
-            "risk_score",
-            "stability_score",
-            "growth_score",
+            "close",
+            "sma_5",
+            "sma_20",
+            "momentum_5",
         ]
         fig_trend = go.Figure()
         for col in metric_cols:
@@ -163,7 +159,7 @@ else:
     with c1:
         dividends_df = query_df_params(
             """
-            SELECT ticker, ex_date, dividend_amount, dividend_yield, dividend_growth
+            SELECT ticker, ex_date, dividend_amount, dividend_growth
             FROM public.fact_dividends
             WHERE ticker = :ticker
             ORDER BY ex_date DESC
@@ -176,7 +172,7 @@ else:
     with c2:
         earnings_df = query_df_params(
             """
-            SELECT ticker, report_date, reported_eps, expected_eps, eps_surprise, revenue, revenue_surprise
+            SELECT ticker, report_date, eps_actual, eps_estimate, surprise_pct
             FROM public.fact_earnings
             WHERE ticker = :ticker
             ORDER BY report_date DESC

@@ -17,6 +17,7 @@ st.markdown(
 - `Market Monitor`: pipeline status, market tape, movers, heatmap.
 - `Charts Workbench`: build chart components with independent settings.
 - `Feature Engineering`: inspect engineered facts and signal rankings.
+- `Universe Pipeline`: inspect stock universe source, dimensions, and bridge step-by-step.
 - `Replay Lab`: choose exact time windows and replay candles with indicators.
 - `Quarantine Review`: inspect bad rows and export filtered results.
 - `SQL Explorer`: run ad-hoc analytics SQL on the analytics database.
