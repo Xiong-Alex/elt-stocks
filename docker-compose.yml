@@ -41,6 +41,11 @@ services:
       POSTGRES_DB: ${AIRFLOW_DB_NAME}
     volumes:
       - postgres_airflow_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_DB_USER} -d ${AIRFLOW_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks:
       - framework-net
 
@@ -55,6 +60,11 @@ services:
       POSTGRES_DB: ${ANALYTICS_DB_NAME}
     volumes:
       - postgres_analytics_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER} -d ${ANALYTICS_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks:
       - framework-net
 
@@ -89,6 +99,55 @@ services:
     depends_on:
       - spark-master
     command: ["/bin/bash", "-c", "/opt/spark/sbin/start-worker.sh spark://spark-master:7077 && tail -f /opt/spark/logs/*"]
+    networks:
+      - framework-net
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: airflow/Dockerfile
+    container_name: airflow-init
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@postgres-airflow:5432/${AIRFLOW_DB_NAME}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=framework-secret
+      - PYTHONPATH=/opt/airflow/dags:/opt/pipeline-jobs
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+      - KAFKA_TOPIC=${KAFKA_TOPIC}
+      - KAFKA_TOPIC_FUNDAMENTALS=${KAFKA_TOPIC_FUNDAMENTALS}
+      - KAFKA_TOPIC_DIVIDENDS=${KAFKA_TOPIC_DIVIDENDS}
+      - KAFKA_TOPIC_EARNINGS=${KAFKA_TOPIC_EARNINGS}
+      - STOCK_SYMBOLS=${STOCK_SYMBOLS}
+      - POSTGRES_HOST=postgres-analytics
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${ANALYTICS_DB_NAME}
+      - POSTGRES_USER=${ANALYTICS_DB_USER}
+      - POSTGRES_PASSWORD=${ANALYTICS_DB_PASSWORD}
+      - S3_ENDPOINT=${S3_ENDPOINT_INTERNAL}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_REGION=${S3_REGION}
+      - S3_DATALAKE_BUCKET=${S3_DATALAKE_BUCKET}
+    volumes:
+      - ./pipelines/dags:/opt/airflow/dags
+      - ./pipelines/jobs:/opt/pipeline-jobs
+      - airflow_logs:/opt/airflow/logs
+    command: >
+      bash -c "
+      airflow db init &&
+      airflow db migrate &&
+      (airflow users list | grep -q \"${AIRFLOW_ADMIN_USER}\" ||
+      airflow users create --role Admin --username ${AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD} --firstname Admin --lastname User --email admin@example.com)"
+    depends_on:
+      postgres-airflow:
+        condition: service_healthy
+      postgres-analytics:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      minio:
+        condition: service_started
     networks:
       - framework-net
 
@@ -127,23 +186,19 @@ services:
       - airflow_logs:/opt/airflow/logs
     command: >
       bash -c "
-      airflow db init &&
-      airflow db migrate &&
-      (airflow users list | grep -q \"${AIRFLOW_ADMIN_USER}\" ||
-      airflow users create
-        --role Admin
-        --username ${AIRFLOW_ADMIN_USER}
-        --password ${AIRFLOW_ADMIN_PASSWORD}
-        --firstname Admin
-        --lastname User
-        --email admin@example.com) &&
       airflow scheduler &
       exec airflow webserver"
     depends_on:
-      - postgres-airflow
-      - postgres-analytics
-      - kafka
-      - minio
+      airflow-init:
+        condition: service_completed_successfully
+      postgres-airflow:
+        condition: service_healthy
+      postgres-analytics:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      minio:
+        condition: service_started
     networks:
       - framework-net
 
