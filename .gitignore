@@ -1,0 +1,6 @@
+# Local env secrets (keep .env.example tracked)
+.env
+
+# Python cache artifacts
+__pycache__/
+*.pyc
