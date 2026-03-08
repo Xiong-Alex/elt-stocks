@@ -70,6 +70,12 @@ services:
         condition: service_started
     networks:
       - elt-stocks-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
 
   postgres-airflow:
@@ -139,6 +145,12 @@ services:
     command: ["/bin/bash", "-c", "/opt/spark/sbin/start-master.sh && tail -f /opt/spark/logs/*"]
     networks:
       - elt-stocks-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080 > /dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
 
   spark-worker:
@@ -149,6 +161,12 @@ services:
     command: ["/bin/bash", "-c", "/opt/spark/sbin/start-worker.sh spark://spark-master:7077 && tail -f /opt/spark/logs/*"]
     networks:
       - elt-stocks-net
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -q '[o]rg.apache.spark.deploy.worker.Worker'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
 
   airflow-init:
@@ -201,6 +219,12 @@ services:
         condition: service_started
       minio:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$$HOSTNAME\" > /dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
 
   streamlit:
     build:

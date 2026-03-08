@@ -2,7 +2,7 @@ from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build MARKET_SIGNALS from FACT_PRICE_DAILY."""
+    """Build FACT_MARKET_SIGNALS from FACT_PRICE_DAILY."""
     conn = connect()
     conn.autocommit = True
     try:
@@ -10,7 +10,7 @@ def run_job() -> None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                CREATE TABLE IF NOT EXISTS public.market_signals (
+                CREATE TABLE IF NOT EXISTS public.fact_market_signals (
                     ticker TEXT NOT NULL,
                     date_key INTEGER NOT NULL,
                     close DOUBLE PRECISION,
@@ -42,7 +42,7 @@ def run_job() -> None:
                         ) AS momentum_5
                     FROM public.fact_price_daily
                 )
-                INSERT INTO public.market_signals (
+                INSERT INTO public.fact_market_signals (
                     ticker, date_key, close, sma_5, sma_20, momentum_5, signal
                 )
                 SELECT
