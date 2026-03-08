@@ -9,3 +9,9 @@ ps:
 
 logs:
 	docker compose logs -f
+
+smoke:
+	powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -NoBuild
+
+smoke-build:
+	powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1

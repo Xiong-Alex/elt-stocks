@@ -29,6 +29,26 @@ docker compose up -d --build
 docker compose ps
 ```
 
+## Smoke Test
+
+If `make` is installed:
+
+```powershell
+make smoke
+```
+
+Run the full command from the repo root (works without `make`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
+```
+
+Fast check without rebuilding images (full command):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -NoBuild
+```
+
 ## Important Config
 
 - Spark jobs submitted by Airflow use Spark cluster mode:
@@ -47,6 +67,15 @@ docker compose ps
 5. Streamlit: `http://localhost:8501`
 6. Postgres Airflow metadata: `localhost:5432` (`airflow/airflow`)
 7. Postgres analytics: `localhost:5433` (`analytics/analytics`)
+
+## Airflow Services
+
+- Airflow now runs as separate services:
+  - `airflow-init` (one-time DB/user bootstrap)
+  - `airflow-webserver` (UI/API)
+  - `airflow-scheduler` (DAG scheduling)
+- For Airflow CLI commands, exec into `airflow-webserver`:
+  - `docker compose exec airflow-webserver airflow users list`
 
 ## DAG Run Order
 
