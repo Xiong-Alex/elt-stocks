@@ -1,3 +1,11 @@
+"""
+Universe source refresher.
+
+Purpose:
+- Resolve latest symbols for a universe (default S&P 500).
+- Keep source-of-truth symbol and membership tables updated and idempotent.
+"""
+
 import argparse
 import csv
 import io
@@ -42,9 +50,10 @@ def refresh_stock_symbols(
     - public.stock_symbols
     - public.stock_universe_memberships_source
     """
+    # Resolve symbols from configured source.
     if source == "sp500":
         # Resolve latest membership snapshot for the selected source.
-        resolved_symbols = _fetch_sp500_symbols()[:10] # only retrieve first 10, remove slicing later for full list
+        resolved_symbols = _fetch_sp500_symbols()[:10]  # only retrieve first 10, remove slicing later for full list
         upstream_source = "datahub_sp500"
     elif source == "manual":
         resolved_symbols = _normalize_symbols(symbols or [])
@@ -160,7 +169,7 @@ def refresh_stock_symbols(
 
 
 def main() -> None:
-    # CLI wrapper so the job can be called from Airflow/BashOperator.
+    """CLI wrapper so the job can be called from Airflow/BashOperator."""
     parser = argparse.ArgumentParser(description="Refresh stock symbols universe.")
     parser.add_argument("--source", default="sp500", choices=["sp500", "manual"])
     parser.add_argument(

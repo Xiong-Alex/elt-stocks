@@ -1,13 +1,28 @@
+"""
+Earnings fact builder.
+
+Purpose:
+- Create/populate `public.fact_earnings` from raw earnings source.
+- Keep one row per (ticker, report_date) with upsert semantics.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build FACT_EARNINGS from earnings_raw."""
+    """
+    Build/update `public.fact_earnings`.
+
+    Inputs:
+    - public.earnings_raw
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure source/raw tables exist for first-run safety.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create fact table if missing.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.fact_earnings (
@@ -20,6 +35,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Upsert earnings rows by business key.
             cur.execute(
                 """
                 INSERT INTO public.fact_earnings (

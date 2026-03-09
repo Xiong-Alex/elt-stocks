@@ -1,13 +1,30 @@
+"""
+Bridge table builder for stock-to-universe membership.
+
+Purpose:
+- Map `dim_stock.stock_key` to `dim_universe.universe_key`.
+- Track active/inactive membership lifecycle with effective dates.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build bridge table between dim_stock and dim_universe."""
+    """
+    Build/update `public.bridge_stock_universe_membership`.
+
+    Inputs:
+    - public.stock_universe_memberships_source
+    - public.dim_stock
+    - public.dim_universe
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure base/source tables exist before dimension/bridge work.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create bridge table once; reruns are upsert-based.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.bridge_stock_universe_membership (
@@ -22,6 +39,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Join source memberships to dimensions and upsert bridge rows.
             cur.execute(
                 """
                 WITH src AS (

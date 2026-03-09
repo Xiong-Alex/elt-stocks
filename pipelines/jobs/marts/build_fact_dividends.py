@@ -1,13 +1,28 @@
+"""
+Dividends fact builder.
+
+Purpose:
+- Create/populate `public.fact_dividends` from raw dividends source.
+- Compute `dividend_growth` using previous dividend per ticker.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build FACT_DIVIDENDS from dividends_raw."""
+    """
+    Build/update `public.fact_dividends`.
+
+    Inputs:
+    - public.dividends_raw
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure source/raw tables exist for first-run safety.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create fact table if missing.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.fact_dividends (
@@ -19,6 +34,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Compute lag-based growth and upsert by (ticker, ex_date).
             cur.execute(
                 """
                 WITH ordered AS (

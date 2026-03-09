@@ -1,13 +1,28 @@
+"""
+Fundamentals fact builder.
+
+Purpose:
+- Create/populate `public.fact_fundamentals` from raw fundamentals source.
+- Keep one row per (ticker, asof_date) with upsert semantics.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build FACT_FUNDAMENTALS from fundamentals_raw."""
+    """
+    Build/update `public.fact_fundamentals`.
+
+    Inputs:
+    - public.fundamentals_raw
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure source/raw tables exist for first-run safety.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create fact table if missing.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.fact_fundamentals (
@@ -20,6 +35,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Upsert fundamentals rows by business key.
             cur.execute(
                 """
                 INSERT INTO public.fact_fundamentals (

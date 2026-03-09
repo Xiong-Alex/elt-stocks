@@ -1,13 +1,28 @@
+"""
+Date dimension builder.
+
+Purpose:
+- Create/populate `public.dim_date` for calendar analytics joins.
+- Cover date range observed in gold bars, with sane defaults on empty data.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build DIM_DATE from the available event_ts window."""
+    """
+    Build/update `public.dim_date` from gold event timestamps.
+
+    Inputs:
+    - public.stock_bars_gold.event_ts
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure source tables exist so this job can run on fresh DBs.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create date dimension structure if missing.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.dim_date (
@@ -22,6 +37,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Generate continuous date series and insert missing keys only.
             cur.execute(
                 """
                 WITH bounds AS (

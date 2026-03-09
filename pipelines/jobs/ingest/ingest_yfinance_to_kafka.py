@@ -1,3 +1,11 @@
+"""
+Price ingest job (yfinance -> Kafka + source table).
+
+Modes:
+- intraday: incremental windowing based on latest stored event_ts
+- backfill: explicit date window from CLI args
+"""
+
 import argparse
 import json
 import os
@@ -22,6 +30,7 @@ def _normalize_symbols(symbols: Iterable[str]) -> list[str]:
 
 
 def _resolve_symbols(cur, symbols_arg: str) -> list[str]:
+    # If CLI symbols are supplied, use them. Otherwise resolve active symbols from DB.
     if symbols_arg.strip():
         return _normalize_symbols(symbols_arg.split(","))
 
@@ -40,6 +49,7 @@ def _resolve_symbols(cur, symbols_arg: str) -> list[str]:
 
 
 def _ensure_tables(cur) -> None:
+    # Source lineage table used for traceability and replay.
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS public.stock_price_events_source (

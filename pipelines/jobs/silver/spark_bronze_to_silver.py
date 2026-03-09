@@ -1,9 +1,16 @@
+"""
+Silver transform job (bronze -> silver).
+
+Promotes valid bronze rows into curated silver rows with idempotent upsert logic.
+"""
+
 import argparse
 
 from marts._db import connect
 
 
 def _ensure_tables(cur) -> None:
+    # Silver target table for cleaned/curated bars.
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS public.stock_bars_silver (
@@ -26,6 +33,7 @@ def _ensure_tables(cur) -> None:
 
 
 def run_job(run_id: str) -> None:
+    # If run_id is provided, process only that batch; else process all bronze rows.
     conn = connect()
     conn.autocommit = True
     try:

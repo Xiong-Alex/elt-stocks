@@ -1,13 +1,28 @@
+"""
+Universe dimension builder.
+
+Purpose:
+- Create/populate `public.dim_universe` from source memberships.
+- Keep one row per universe code (for example SP500) with status metadata.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build DIM_UNIVERSE from stock_universe_memberships_source."""
+    """
+    Build/update `public.dim_universe`.
+
+    Inputs:
+    - public.stock_universe_memberships_source
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure source tables exist on fresh databases.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create dimension table once.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.dim_universe (
@@ -21,6 +36,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Roll up source memberships to one row per universe_code.
             cur.execute(
                 """
                 INSERT INTO public.dim_universe (

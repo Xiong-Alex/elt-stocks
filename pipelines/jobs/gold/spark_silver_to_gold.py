@@ -1,9 +1,16 @@
+"""
+Gold merge job (silver -> gold serving table).
+
+Merges silver rows into `public.stock_bars_gold` keyed by `(symbol, event_ts)`.
+"""
+
 import argparse
 
 from marts._db import connect, ensure_source_tables
 
 
 def run_job(run_id: str) -> None:
+    # If run_id is provided, merge only that batch; else merge all silver rows.
     conn = connect()
     conn.autocommit = True
     try:

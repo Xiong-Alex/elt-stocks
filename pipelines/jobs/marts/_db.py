@@ -1,9 +1,18 @@
+"""
+Shared database helpers for mart jobs.
+
+This module provides:
+- `connect()` for psycopg2 connection bootstrap from environment variables.
+- `ensure_source_tables()` for minimal schema bootstrap on fresh databases.
+"""
+
 import os
 
 import psycopg2
 
 
 def connect():
+    """Create a psycopg2 connection using analytics DB env configuration."""
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "postgres-analytics"),
         port=int(os.getenv("POSTGRES_PORT", "5432")),
@@ -14,7 +23,13 @@ def connect():
 
 
 def ensure_source_tables(conn) -> None:
-    """Create minimal source schemas so mart jobs can run on a fresh DB."""
+    """
+    Create baseline source tables required by marts.
+
+    Notes:
+    - These are lightweight bootstrap tables to make first-run local/dev flows work.
+    - Individual mart jobs still own their target dimension/fact table DDL.
+    """
     with conn.cursor() as cur:
         cur.execute(
             """

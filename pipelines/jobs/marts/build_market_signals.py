@@ -1,13 +1,28 @@
+"""
+Market signals fact builder.
+
+Purpose:
+- Create/populate `public.fact_market_signals` from daily price fact.
+- Compute rolling indicators (SMA windows, momentum) and simple signal labels.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build FACT_MARKET_SIGNALS from FACT_PRICE_DAILY."""
+    """
+    Build/update `public.fact_market_signals`.
+
+    Inputs:
+    - public.fact_price_daily
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure dependent source tables exist for first-run safety.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create signals fact table if missing.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.fact_market_signals (
@@ -22,6 +37,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Compute rolling features and upsert by (ticker, date_key).
             cur.execute(
                 """
                 WITH base AS (

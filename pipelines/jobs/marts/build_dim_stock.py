@@ -1,13 +1,28 @@
+"""
+Stock dimension builder.
+
+Purpose:
+- Create/populate `public.dim_stock` from symbol source table.
+- Keep stable ticker-level dimensional state for downstream joins.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build DIM_STOCK from stock_symbols."""
+    """
+    Build/update `public.dim_stock`.
+
+    Inputs:
+    - public.stock_symbols
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure baseline source tables exist for first-run setups.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create dimension table if needed.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.dim_stock (
@@ -18,6 +33,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Upsert symbol rows so reruns are idempotent.
             cur.execute(
                 """
                 INSERT INTO public.dim_stock (ticker, is_active, updated_at)

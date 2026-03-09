@@ -1,13 +1,28 @@
+"""
+Daily price fact builder.
+
+Purpose:
+- Create/populate `public.fact_price_daily` from intraday gold bars.
+- Derive daily OHLCV per ticker/date with idempotent upserts.
+"""
+
 from _db import connect, ensure_source_tables
 
 
 def run_job() -> None:
-    """Build FACT_PRICE_DAILY from stock_bars_gold."""
+    """
+    Build/update `public.fact_price_daily`.
+
+    Inputs:
+    - public.stock_bars_gold
+    """
     conn = connect()
     conn.autocommit = True
     try:
+        # Ensure source/gold tables exist for first-run safety.
         ensure_source_tables(conn)
         with conn.cursor() as cur:
+            # Create fact table if missing.
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS public.fact_price_daily (
@@ -22,6 +37,7 @@ def run_job() -> None:
                 );
                 """
             )
+            # Aggregate OHLCV daily and upsert by (ticker, date_key).
             cur.execute(
                 """
                 WITH daily AS (

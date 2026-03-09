@@ -1,3 +1,11 @@
+"""
+Bronze load job (Kafka -> bronze/quarantine tables).
+
+Reads run-scoped events from Kafka, validates payload shape, and writes:
+- valid rows to `public.stock_bars_bronze`
+- invalid rows to `public.stock_bars_quarantine`
+"""
+
 import argparse
 import json
 import os
@@ -11,6 +19,7 @@ from marts._db import connect, ensure_source_tables
 
 
 def _ensure_tables(cur) -> None:
+    # Bronze target for valid normalized bars.
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS public.stock_bars_bronze (
@@ -31,6 +40,7 @@ def _ensure_tables(cur) -> None:
         );
         """
     )
+    # Quarantine sink for records that fail validation rules.
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS public.stock_bars_quarantine (
