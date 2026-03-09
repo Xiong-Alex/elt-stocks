@@ -150,7 +150,7 @@ build_dim_stock.py
 
 File:
 
-dags/historical_backfill_dag.py
+dags/stock_historical_backfill_dag.py
 
 Purpose:
 
@@ -180,7 +180,7 @@ This DAG runs primarily during initial dataset creation.
 
 File:
 
-dags/intraday_pipeline_dag.py
+dags/stock_intraday_pipeline_dag.py
 
 Purpose:
 
@@ -205,7 +205,7 @@ Every 30 minutes or daily depending on data source.
 
 File:
 
-dags/feature_engineering_dag.py
+dags/market_analytics_dag.py
 
 Purpose:
 
@@ -449,8 +449,8 @@ This table enables:
 
 project/
 
-dags/ update_stock_universe_dag.py historical_backfill_dag.py
-intraday_pipeline_dag.py feature_engineering_dag.py
+dags/ update_stock_universe_dag.py stock_historical_backfill_dag.py
+stock_intraday_pipeline_dag.py market_analytics_dag.py
 
 jobs/
 

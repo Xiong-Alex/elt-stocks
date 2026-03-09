@@ -11,7 +11,7 @@ from airflow.operators.bash import BashOperator
 #   ingest -> bronze -> silver -> gold.
 # - Keep analytics tables updated with recent price movements.
 with DAG(
-    dag_id="intraday_pipeline_dag",
+    dag_id="stock_intraday_pipeline_dag",
     start_date=datetime(2024, 1, 1),
     schedule_interval="*/30 * * * *",
     catchup=False,

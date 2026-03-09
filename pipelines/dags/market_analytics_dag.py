@@ -10,7 +10,7 @@ from airflow.operators.bash import BashOperator
 # - Build analytical dimensions and facts used by dashboards/features.
 # - Produce market signal features derived from price fact.
 with DAG(
-    dag_id="feature_engineering_dag",
+    dag_id="market_analytics_dag",
     start_date=datetime(2024, 1, 1),
     schedule_interval="15 * * * *",
     catchup=False,
@@ -34,24 +34,6 @@ with DAG(
         bash_command="python /opt/pipeline-jobs/marts/build_fact_price_daily.py",
     )
 
-    # Step 3B: Build fundamentals fact from fundamentals raw source.
-    build_fact_fundamentals = BashOperator(
-        task_id="build_fact_fundamentals",
-        bash_command="python /opt/pipeline-jobs/marts/build_fact_fundamentals.py",
-    )
-
-    # Step 3C: Build dividends fact from dividends raw source.
-    build_fact_dividends = BashOperator(
-        task_id="build_fact_dividends",
-        bash_command="python /opt/pipeline-jobs/marts/build_fact_dividends.py",
-    )
-
-    # Step 3D: Build earnings fact from earnings raw source.
-    build_fact_earnings = BashOperator(
-        task_id="build_fact_earnings",
-        bash_command="python /opt/pipeline-jobs/marts/build_fact_earnings.py",
-    )
-
     # Step 4: Build market signal features derived from price fact.
     build_market_signals = BashOperator(
         task_id="build_market_signals",
@@ -60,8 +42,9 @@ with DAG(
 
     # Dependencies:
     # - Build dimensions first.
-    # - Then run fact builds in parallel branches.
+    # - Build price fact for feature generation.
+    # - Reference-data facts are owned by `company_fundamentals_dag`.
     # - Signals depend on price fact completion.
     build_dim_date >> build_dim_stock
-    build_dim_stock >> [build_fact_price, build_fact_fundamentals, build_fact_dividends, build_fact_earnings]
+    build_dim_stock >> build_fact_price
     build_fact_price >> build_market_signals

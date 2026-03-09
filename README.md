@@ -108,22 +108,22 @@ Located in `pipelines/dags`:
 - Refreshes source symbols/universe membership
 - Builds `dim_stock`, `dim_universe`, and bridge membership
 
-2. `historical_backfill_dag` (manual)
+2. `stock_historical_backfill_dag` (manual)
 - Backfills prices for a date range/run_id
 - Runs ingest -> bronze -> silver -> gold -> `fact_price_daily`
 
-3. `intraday_pipeline_dag` (scheduled every 30 min)
+3. `stock_intraday_pipeline_dag` (scheduled every 30 min)
 - Price-focused periodic pipeline
 - ingest -> bronze -> silver -> gold
 
-4. `price_bronze_streaming_dag` (manual)
+4. `stock_price_bronze_streaming_dag` (manual)
 - Manual price ingest + bronze load only
 - Useful for price-only runs without silver/gold
 
-5. `reference_data_dag` (daily)
+5. `company_fundamentals_dag` (daily)
 - Fundamentals/dividends/earnings ingest + fact refresh
 
-6. `feature_engineering_dag`
+6. `market_analytics_dag`
 - Builds dimensions/facts/features (including market signals)
 
 ## Recommended Run Order
@@ -131,16 +131,16 @@ Located in `pipelines/dags`:
 For a fresh local setup:
 
 1. `update_stock_universe_dag`
-2. `reference_data_dag`
-3. `historical_backfill_dag` (optional but recommended initially)
-4. `intraday_pipeline_dag`
-5. `feature_engineering_dag`
+2. `company_fundamentals_dag`
+3. `stock_historical_backfill_dag` (optional but recommended initially)
+4. `stock_intraday_pipeline_dag`
+5. `market_analytics_dag`
 
-Use `price_bronze_streaming_dag` when you specifically want a manual price->bronze run.
+Use `stock_price_bronze_streaming_dag` when you specifically want a manual price->bronze run.
 
 ## Triggering Backfill with Config
 
-Airflow UI -> `historical_backfill_dag` -> Trigger with config:
+Airflow UI -> `stock_historical_backfill_dag` -> Trigger with config:
 
 ```json
 {
@@ -183,8 +183,8 @@ powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -NoBuild
 
 ```powershell
 docker compose exec airflow-webserver airflow dags list
-docker compose exec airflow-webserver airflow dags trigger intraday_pipeline_dag
-docker compose exec airflow-webserver airflow tasks list intraday_pipeline_dag
+docker compose exec airflow-webserver airflow dags trigger stock_intraday_pipeline_dag
+docker compose exec airflow-webserver airflow tasks list stock_intraday_pipeline_dag
 ```
 
 ## Testing

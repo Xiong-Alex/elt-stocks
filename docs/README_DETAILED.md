@@ -108,7 +108,7 @@ Gold behavior:
 - Reads `STOCK_SYMBOLS` env (fallback default list)
 - Marks all symbols inactive, then upserts active set
 
-### `historical_backfill_dag`
+### `stock_historical_backfill_dag`
 
 - One-time/manual bulk backfill flow
 - Uses yfinance with `--period 1y --interval 1h`
@@ -121,14 +121,14 @@ Gold behavior:
   6. Silver to Gold
   7. Gold validation
 
-### `intraday_pipeline_dag`
+### `stock_intraday_pipeline_dag`
 
 - Recurring incremental flow (`*/30 * * * *`)
 - Uses yfinance with `--period 5d --interval 5m`
-- Assumes `price_bronze_streaming_dag` is already running for price Kafka->Bronze
+- Assumes `stock_price_bronze_streaming_dag` is already running for price Kafka->Bronze
 - Executes downstream refinement/serving steps on schedule (Silver, Gold, validations)
 
-### `price_bronze_streaming_dag`
+### `stock_price_bronze_streaming_dag`
 
 - Long-running price-bars stream (`schedule_interval=None`, manually started)
 - Runs Kafka -> Bronze for `stock_bars_raw` using processing-time trigger
@@ -175,8 +175,8 @@ Primary runtime knobs come from `.env` and are injected into Airflow/Spark jobs:
 ## 10. Quick Verification Checklist
 
 1. `docker compose ps` shows all core services up/healthy.
-2. `price_bronze_streaming_dag` is running (for intraday mode).
-3. Airflow DAG run succeeds for `intraday_pipeline_dag` or `historical_backfill_dag`.
+2. `stock_price_bronze_streaming_dag` is running (for intraday mode).
+3. Airflow DAG run succeeds for `stock_intraday_pipeline_dag` or `stock_historical_backfill_dag`.
 4. Kafka UI shows topic `stock_bars_raw` with activity.
 5. MinIO contains Bronze/Silver objects and checkpoint path.
 6. Postgres analytics has rows in `public.stock_bars_gold`.

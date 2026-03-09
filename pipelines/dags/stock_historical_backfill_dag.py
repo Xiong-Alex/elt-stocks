@@ -10,7 +10,7 @@ from airflow.operators.bash import BashOperator
 # - Load historical price windows by date range/symbol scope.
 # - Rebuild downstream layers for that run batch.
 with DAG(
-    dag_id="historical_backfill_dag",
+    dag_id="stock_historical_backfill_dag",
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,

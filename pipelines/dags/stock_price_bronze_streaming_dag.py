@@ -10,7 +10,7 @@ from airflow.operators.bash import BashOperator
 # - Run a focused price ingestion cycle without Silver/Gold transforms.
 # - Useful for manual Bronze refreshes and debugging ingest/bronze path.
 with DAG(
-    dag_id="price_bronze_streaming_dag",
+    dag_id="stock_price_bronze_streaming_dag",
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,
